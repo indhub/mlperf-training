@@ -100,7 +100,7 @@ def get_profiler_hook(save_steps=1000, **kwargs):  # pylint: disable=unused-argu
   return tf.train.ProfilerHook(save_steps=save_steps)
 
 
-def get_examples_per_second_hook(every_n_steps=100,
+def get_examples_per_second_hook(every_n_steps=10,
                                  batch_size=128,
                                  warm_steps=5,
                                  **kwargs):  # pylint: disable=unused-argument

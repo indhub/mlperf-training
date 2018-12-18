@@ -28,6 +28,10 @@ import os
 
 import tensorflow as tf  # pylint: disable=g-bad-import-order
 
+from tensorflow.python.framework import ops
+from tensorflow.python.ops import variables
+from tensorflow.python.ops import state_ops
+
 from mlperf_compliance import mlperf_log
 from mlperf_compliance import tf_mlperf_log
 from official.resnet import resnet_model
@@ -119,7 +123,7 @@ def get_synth_input_fn(height, width, num_channels, num_classes):
   """
   def input_fn(is_training, data_dir, batch_size, *args, **kwargs):  # pylint: disable=unused-argument
     images = tf.zeros((batch_size, height, width, num_channels), tf.float32)
-    labels = tf.zeros((batch_size, num_classes), tf.int32)
+    labels = tf.zeros((batch_size), tf.int32)
     return tf.data.Dataset.from_tensors((images, labels)).repeat()
 
   return input_fn
@@ -167,6 +171,32 @@ def learning_rate_with_decay(
     return tf.cond(global_step < warmup_steps, lambda: warmup_lr, lambda: lr)
 
   return learning_rate_fn
+
+
+class DummyOptimizer(tf.train.Optimizer):
+  def __init__(self):
+      pass
+
+  def compute_gradients(self, loss, var_list=None,
+                        gate_gradients=tf.train.Optimizer.GATE_OP,
+                        aggregation_method=None,
+                        colocate_gradients_with_ops=False,
+                        grad_loss=None):
+
+    if var_list is None:
+      var_list = (
+        variables.trainable_variables() +
+        ops.get_collection(ops.GraphKeys.TRAINABLE_RESOURCE_VARIABLES))
+    else:
+      var_list += ops.get_collection(ops.GraphKeys._STREAMING_MODEL_PORTS)
+
+    grads = []
+    for var in var_list:
+        grads.append(tf.zeros_like(var))
+    return list(zip(grads, var_list))
+
+  def apply_gradients(self, grads_and_vars, global_step=None, name=None):
+    return state_ops.assign_add(global_step, 1)
 
 
 def resnet_model_fn(features, labels, mode, model_class,
@@ -289,10 +319,7 @@ def resnet_model_fn(features, labels, mode, model_class,
     mlperf_log.resnet_print(key=mlperf_log.OPT_NAME,
                             value=mlperf_log.SGD_WITH_MOMENTUM)
     mlperf_log.resnet_print(key=mlperf_log.OPT_MOMENTUM, value=momentum)
-    optimizer = tf.train.MomentumOptimizer(
-        learning_rate=learning_rate,
-        momentum=momentum
-    )
+    optimizer = DummyOptimizer()
 
     if loss_scale != 1:
       # When computing fp16 gradients, often intermediate tensor values are
