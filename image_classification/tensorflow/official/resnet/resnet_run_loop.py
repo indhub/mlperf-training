@@ -41,6 +41,7 @@ from official.utils.logs import hooks_helper
 from official.utils.logs import logger
 from official.utils.misc import model_helpers
 
+import horovod.tensorflow as hvd
 
 _NUM_EXAMPLES_NAME = "num_examples"
 
@@ -323,6 +324,8 @@ def resnet_model_fn(features, labels, mode, model_class,
     mlperf_log.resnet_print(key=mlperf_log.OPT_MOMENTUM, value=momentum)
     optimizer = DummyOptimizer()
 
+    optimizer = hvd.DistributedOptimizer(optimizer)
+
     if loss_scale != 1:
       # When computing fp16 gradients, often intermediate tensor values are
       # so small, they underflow to 0. To avoid this, we multiply the loss by
@@ -411,6 +414,8 @@ def resnet_main(seed, flags, model_function, input_function, shape=None):
     shape: list of ints representing the shape of the images used for training.
       This is only used if flags.export_dir is passed.
   """
+
+  hvd.init()
 
   mlperf_log.resnet_print(key=mlperf_log.RUN_START)
 
@@ -504,7 +509,9 @@ def resnet_main(seed, flags, model_function, input_function, shape=None):
           dtype=flags.dtype
       )
 
-    classifier.train(input_fn=input_fn_train, hooks=train_hooks + [compliance_hook],
+    bcast_hook = hvd.BroadcastGlobalVariablesHook(0)
+
+    classifier.train(input_fn=input_fn_train, hooks=train_hooks + [compliance_hook] + [bcast_hook],
                      max_steps=flags.max_train_steps)
 
     train_examples = int(_log_cache.pop()[_NUM_EXAMPLES_NAME])
