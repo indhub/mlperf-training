@@ -9,9 +9,11 @@ export PYTHONPATH="$(pwd):${PYTHONPATH}"
 
 MODEL_DIR="/tmp/resnet_imagenet_${RANDOM_SEED}"
 
+rm -rf ${MODEL_DIR}
+
 python3 official/resnet/imagenet_main.py $RANDOM_SEED --use_synthetic_data \
   --model_dir $MODEL_DIR --train_epochs 8 --stop_threshold $QUALITY --batch_size 1 \
-  --version 1 --resnet_size 50 --epochs_between_evals 4 --num_gpus 0 --max_train_steps 100 --hooks "ExamplesPerSecondHook"
+  --version 1 --resnet_size 50 --epochs_between_evals 4 --num_gpus 0 --max_train_steps 10000 --hooks "ExamplesPerSecondHook"
 
 # To run on 8xV100s, instead run:
 #python3 official/resnet/imagenet_main.py $RANDOM_SEED --data_dir /imn/imagenet/combined/ \
