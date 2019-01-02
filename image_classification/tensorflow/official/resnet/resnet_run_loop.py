@@ -191,8 +191,6 @@ class DummyOptimizer(tf.train.Optimizer):
     else:
       var_list += ops.get_collection(ops.GraphKeys._STREAMING_MODEL_PORTS)
 
-    print(var_list)
-
     grads = []
     for var in var_list:
         grad = tf.random.normal(shape=var.shape, mean=0.0, stddev=0.0001)
@@ -215,6 +213,7 @@ class DummyOptimizer(tf.train.Optimizer):
       for grad, var in grads_and_vars:
           dummy_grad = grad
           if grad is not None:
+              print(var.shape)
               dummy_grad = tf.multiply(var, 0.0001)
           dummy_grads.append((dummy_grad, var))
       return dummy_grads
@@ -343,7 +342,7 @@ def resnet_model_fn(features, labels, mode, model_class,
                             value=mlperf_log.SGD_WITH_MOMENTUM)
     mlperf_log.resnet_print(key=mlperf_log.OPT_MOMENTUM, value=momentum)
     optimizer = DummyOptimizer()
-    #optimizer = hvd.DistributedOptimizer(optimizer)
+    optimizer = hvd.DistributedOptimizer(optimizer)
 
     if loss_scale != 1:
       # When computing fp16 gradients, often intermediate tensor values are
